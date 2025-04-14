@@ -1,5 +1,7 @@
 package ex2
 
+import scala.util.Random
+
 type Position = (Int, Int)
 enum Direction:
   case North, East, South, West
@@ -42,9 +44,49 @@ class LoggingRobot(val robot: Robot) extends Robot:
     robot.act()
     println(robot.toString)
 
+class RobotWithBattery(val robot: Robot) extends Robot:
+  export robot.{position, direction}
+  private var battery = 100
+  override def act(): Unit =
+    if (battery - 20 >= 0) then battery = battery - 20; robot.act()
+  override def turn(dir: Direction): Unit =
+    if (battery - 10 >= 0) then battery = battery - 10; robot.turn(dir)
+  override def toString: String = s"${robot.toString} (With Battery: $battery%)"
+
+class RobotCanFail(val robot: Robot, percentage: Int) extends Robot:
+  export robot.{position, direction}
+  override def act(): Unit =
+    if Random().nextInt(100) > percentage then robot.act() else println("Failed")
+  override def turn(dir: Direction): Unit =
+    if Random().nextInt(100) > percentage then robot.turn(dir) else println("Failed")
+
+class RobotRepeated(val robot: Robot, reps: Int) extends Robot:
+  export robot.{position, direction}
+  if reps < 0 then throw IllegalStateException()
+  override def act(): Unit =
+    for _ <- 0 to reps do robot.act()
+  override def turn(dir: Direction): Unit =
+    0 to reps foreach (i => robot.turn(dir))
+
 @main def testRobot(): Unit =
-  val robot = LoggingRobot(SimpleRobot((0, 0), Direction.North))
-  robot.act() // robot at (0, 1) facing North
-  robot.turn(robot.direction.turnRight) // robot at (0, 1) facing East
-  robot.act() // robot at (1, 1) facing East
-  robot.act() // robot at (2, 1) facing East
+  val simple = SimpleRobot((0, 0), Direction.North)
+  val logging = LoggingRobot(simple)
+  logging.act() // robot at (0, 1) facing North
+  logging.turn(logging.direction.turnRight) // robot at (0, 1) facing East
+  logging.act() // robot at (1, 1) facing East
+  logging.act() // robot at (2, 1) facing East
+  val battery = LoggingRobot(RobotWithBattery(simple))
+  battery.act()
+  battery.turn(battery.direction.turnLeft)
+  battery.act()
+  battery.act()
+  val canFail = RobotCanFail(LoggingRobot(simple), 80)
+  canFail.act()
+  canFail.turn(canFail.direction.turnLeft)
+  canFail.act()
+  canFail.act()
+  val repeated = RobotRepeated(LoggingRobot(simple), 3)
+  repeated.act()
+  repeated.turn(repeated.direction.turnLeft)
+  repeated.act()
+  repeated.act()
