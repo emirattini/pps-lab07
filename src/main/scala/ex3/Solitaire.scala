@@ -4,11 +4,11 @@ object Solitaire extends App:
   type Cell = (Int, Int)
   type Solution = Iterable[Cell]
   type IterableFactory = Solution => Iterable[Solution]
-  val width = 4
+  val width = 6
   val height = 6
   given IterableFactory = LazyList(_)
 
-  val numbers = 20
+  val numbers = 4
   @main def run(): Unit = placeNumbers(numbers)
     .zipWithIndex
     .foreach((sol, i) => println(render(sol, i, width, height)))
@@ -38,7 +38,7 @@ object Solitaire extends App:
     for
       x <- List(0, 3, -3)
       y <- List(0, 3, -3)
-      if x != y
+      if x == 0 || y == 0 && !(x == 0 && y == 0)
     yield (from._1 + x, from._2 + y)
 
   def render(solution: Solution, index: Int, width: Int, height: Int): String =
