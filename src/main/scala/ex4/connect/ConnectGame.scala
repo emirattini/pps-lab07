@@ -1,4 +1,4 @@
-package ex4
+package ex4.connect
 
 import java.util.OptionalInt
 import scala.annotation.{tailrec, targetName}
@@ -12,6 +12,7 @@ object GameUtils:
     case East, North, NorthEast, NorthWest
 
   import Direction.*
+
   given Conversion[Direction, Point] =
     case East => (1, 0)
     case North => (0, 1)
@@ -37,12 +38,13 @@ object GameUtils:
   def generateMask(starting: Point, direction: Direction, bound: Int, numberOfPoints: Int): Option[Mask] =
     @tailrec
     def iter(point: Point, pointsLeft: Int, acc: Mask): Option[Mask] = point + direction match
+      case _ if pointsLeft == 0 => Some(acc)
       case next if !next.inBound(bound) => None
-      case next if pointsLeft > 1 => iter(next, pointsLeft - 1, acc + next)
-      case _ => Some(acc)
-    iter(starting, numberOfPoints, Set(starting))
+      case next => iter(next, pointsLeft - 1, acc + next)
 
-object ConnectThree extends App:
+    iter(starting, numberOfPoints - 1, Set(starting))
+
+object ConnectGame extends App:
   val size = 4
   val bound = size - 1
 
@@ -54,6 +56,7 @@ object ConnectThree extends App:
       case _ => X
 
   case class Disk(x: Int, y: Int, player: Player)
+
   /**
    * Board:
    * y
@@ -71,11 +74,12 @@ object ConnectThree extends App:
   def find(board: Board, x: Int, y: Int): Option[Player] =
     board.find(d => d.x == x && d.y == y).map(d => d.player)
 
-  def firstAvailableRow(board: Board, x: Int): Option[Int] =
+  def firstAvailableRow(board: Board, col: Int): Option[Int] =
     given ordering: Ordering[Int] = (x, y) => x - y
-    board.filter(d => d.x == x).map(d => d.y).maxOption match
-      case Some(x) if x < bound => Some(x + 1)
-      case None => Some(0)
+
+    board.filter(d => d.x == col).map(d => d.y).maxOption match
+      case Some(row) if row < bound => Some(row + 1)
+      case None if col <= bound => Some(0)
       case _ => None
 
   def placeAnyDisk(board: Board, player: Player): Seq[Board] =
@@ -86,27 +90,32 @@ object ConnectThree extends App:
 
   type Game = Seq[Board]
   type Win = Boolean
+
   def computeAnyGame(player: Player, moves: Int): LazyList[(Game, Win)] = moves match
     case 1 => LazyList.from(placeAnyDisk(Seq.empty[Disk], player)
       .map(initialBoard => (Seq(initialBoard), false)))
     case _ =>
       for
         game <- computeAnyGame(player.other, moves - 1)
-        move <- placeAnyDisk(game._1.last, player)
+        newBoard <- placeAnyDisk(game._1.last, player)
       yield
-        if !isAWin(game._1) then
-          if !isAWin(game._1 :+ move) then (game._1 :+ move, false)
-          else (game._1 :+ move, true)
+        if !isAWin(game._1.last) then
+          if !isAWin(newBoard) then (game._1 :+ newBoard, false)
+          else (game._1 :+ newBoard, true)
         else (game._1, true)
 
   val consecutiveForWin = 3
+
   import GameUtils.{Mask, generateWinningMasks}
+
   val winningMasks: Set[Mask] = generateWinningMasks(size, consecutiveForWin).toSet
-  def isAWin(game: Game): Boolean =
-    val xDisks = game.last.filter(d => d.player == X).map(d => (d.x, d.y)).toSet
-    val oDisks = game.last.filter(d => d.player == O).map(d => (d.x, d.y)).toSet
+
+  def isAWin(board: Board): Boolean =
+    val xDisks = board.filter(d => d.player == X).map(d => (d.x, d.y)).toSet
+    val oDisks = board.filter(d => d.player == O).map(d => (d.x, d.y)).toSet
     winningMasks.map(mask => xDisks & mask).exists(s => s.size == consecutiveForWin)
       || winningMasks.map(mask => oDisks & mask).exists(s => s.size == consecutiveForWin)
+
 
   trait AI:
     def move(board: Board): Disk
@@ -120,8 +129,10 @@ object ConnectThree extends App:
         case _ => move(board)
 
   import GameUtils.Point
+
   object Disk:
     def apply(p: Point, player: Player): Disk = Disk(p._1, p._2, player)
+
   case class SmartAI(player: Player) extends AI:
     def move(board: Board): Disk =
       val possibleMoves = for
@@ -143,6 +154,14 @@ object ConnectThree extends App:
       if x == bound then
         print(" ")
         if board == game.head then println()
+
+  def printBoard(board: Board): Unit =
+    for
+      y <- bound to 0 by -1
+      x <- 0 to bound
+    do
+      print(find(board, x, y).map(_.toString).getOrElse("."))
+      if x == bound then print("\n")
 
   @main def run(): Unit =
     // Exercise 1: implement find such that..
@@ -176,12 +195,13 @@ object ConnectThree extends App:
     import Direction.East
     println(generateMask((0, 0), East, bound, 3)) //Some(Set((0,0), (1,0), (2,0)))
     println(generateMask((2, 2), East, bound, 3)) //None cause out of bound
-    println(generateWinningMasks(gridSize = 4, numberOfPoints = 3).toSet)
+    println(generateMask((0, 0), East, bound = 2, 3)) //Some(Set((0,0), (1,0), (2,0)))
+    println(generateWinningMasks(gridSize = 3, numberOfPoints = 3).toSet)
     println(winningMasks)
-    println(isAWin(Seq(Seq(Disk(3, 0, O), Disk(2, 0, X), Disk(3, 1, O), Disk(1, 0, X), Disk(3, 2, O))))) //true
-    val games = computeAnyGame(O, 5)
+    println(isAWin(Seq(Disk(3, 0, O), Disk(2, 0, X), Disk(3, 1, O), Disk(1, 0, X), Disk(3, 2, O)))) //true
+    val games = computeAnyGame(O, 1)
     games.zipWithIndex.collect({
-      case p if p._1._2 => p
+      case p if true => p
     }).foreach { (g, i) =>
       printBoards(g._1.reverse, g._2, i)
       println()
