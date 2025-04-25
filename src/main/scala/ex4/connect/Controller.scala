@@ -1,7 +1,8 @@
 package ex4.connect
 
-import ex4.connect.ConnectGame.Player.O
-import ex4.connect.ConnectGame.{AI, Board, Disk, Player, RandomAI, firstAvailableRow, isAWin, printBoard, printBoards}
+import ex4.connect.ConnectGame.*
+import ex4.GameUtils.*
+import Player.*
 
 import scala.annotation.tailrec
 import scala.io.StdIn.readLine
@@ -20,26 +21,23 @@ def gameLoop(board: Board, player: Player, ai: Option[AI]): Unit =
   gameLoop(next, player.other, ai)
 
 def nextMove(board: Board, player: Player, ai: Option[AI]): Board = ai match
-  case Some(ai: RandomAI) if player != O =>
+  case Some(ai: AI) if player != O =>
     println("Processing AI outstanding move...")
     Thread.sleep(1000)
     val move = board :+ ai.move(board)
     printBoard(move)
-    if isAWin(move) then {println("Sorry, AI won..."); exit}
+    if isAWin(move) then { println("Sorry, AI won..."); exit }
     move
   case _ =>
     val move = board :+ askUserDisk(board, player)
     printBoard(move)
-    if isAWin(move) then {println(s"Player $player won!!"); exit}
+    if isAWin(move) then { println(s"Player $player won!!"); exit }
     move
 
 @main def runGame(): Unit =
-  import ConnectGame.*
-  import Player.*
-  import scala.io.StdIn.readLine
   val players = readLine("Enter number of players: ").toInt
   val ai = if players == 2 then None else
-    if readLine("Which AI? (Random or Smart): ").equalsIgnoreCase("random")
+    if readLine("Which AI? (r -> Random, s -> Smart): ").equalsIgnoreCase("r")
     then Some(RandomAI(X)) else Some(SmartAI(X))
   printBoard(Seq.empty)
   gameLoop(Seq.empty, O, ai)

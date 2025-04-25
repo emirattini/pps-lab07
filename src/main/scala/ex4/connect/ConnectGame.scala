@@ -1,76 +1,14 @@
 package ex4.connect
 
-import java.util.OptionalInt
 import scala.annotation.{tailrec, targetName}
 import scala.util.Random
 
 // Optional!
-object GameUtils:
-  type Point = (Int, Int)
-
-  enum Direction:
-    case East, North, NorthEast, NorthWest
-
-  import Direction.*
-
-  given Conversion[Direction, Point] =
-    case East => (1, 0)
-    case North => (0, 1)
-    case NorthEast => (1, 1)
-    case NorthWest => (-1, 1)
-
-  type Mask = Set[Point]
-
-  def generateWinningMasks(gridSize: Int, numberOfPoints: Int): IndexedSeq[Mask] =
-    for
-      col <- 0 until gridSize
-      row <- 0 until gridSize
-      dir <- Set(East, North, NorthEast, NorthWest)
-      mask <- generateMask((col, row), dir, gridSize - 1, numberOfPoints)
-    yield
-      mask
-
-  extension (p1: Point)
-    @targetName("sum")
-    def +(p2: Point): Point = (p1._1 + p2._1, p1._2 + p2._2)
-    def inBound(bound: Int): Boolean = p1._1 >= 0 && p1._2 >= 0 && p1._1 <= bound && p1._2 <= bound
-
-  def generateMask(starting: Point, direction: Direction, bound: Int, numberOfPoints: Int): Option[Mask] =
-    @tailrec
-    def iter(point: Point, pointsLeft: Int, acc: Mask): Option[Mask] = point + direction match
-      case _ if pointsLeft == 0 => Some(acc)
-      case next if !next.inBound(bound) => None
-      case next => iter(next, pointsLeft - 1, acc + next)
-
-    iter(starting, numberOfPoints - 1, Set(starting))
-
 object ConnectGame extends App:
   val size = 4
   val bound = size - 1
 
-  enum Player:
-    case X, O
-
-    def other: Player = this match
-      case X => O
-      case _ => X
-
-  case class Disk(x: Int, y: Int, player: Player)
-
-  /**
-   * Board:
-   * y
-   *
-   * 3
-   * 2
-   * 1
-   * 0
-   * 0 1 2 3 <-- x
-   */
-  type Board = Seq[Disk]
-
-  import Player.*
-
+  import ex4.GameUtils.{Player, Point, Disk, Board}
   def find(board: Board, x: Int, y: Int): Option[Player] =
     board.find(d => d.x == x && d.y == y).map(d => d.player)
 
@@ -82,11 +20,14 @@ object ConnectGame extends App:
       case None if col <= bound => Some(0)
       case _ => None
 
-  def placeAnyDisk(board: Board, player: Player): Seq[Board] =
+  def possibleMoves(board: Board): Seq[Point] =
     for
       col <- 0 to bound
       row <- firstAvailableRow(board, col)
-    yield board :+ Disk(col, row, player)
+    yield (col, row)
+
+  def placeAnyDisk(board: Board, player: Player): Seq[Board] =
+    possibleMoves(board).map(point => board :+ Disk(point, player))
 
   type Game = Seq[Board]
   type Win = Boolean
@@ -104,18 +45,12 @@ object ConnectGame extends App:
           else (game._1 :+ newBoard, true)
         else (game._1, true)
 
+  import ex4.GameUtils.{Mask, generateWinningMasks, getWinner}
   val consecutiveForWin = 3
-
-  import GameUtils.{Mask, generateWinningMasks}
-
   val winningMasks: Set[Mask] = generateWinningMasks(size, consecutiveForWin).toSet
 
   def isAWin(board: Board): Boolean =
-    val xDisks = board.filter(d => d.player == X).map(d => (d.x, d.y)).toSet
-    val oDisks = board.filter(d => d.player == O).map(d => (d.x, d.y)).toSet
-    winningMasks.map(mask => xDisks & mask).exists(s => s.size == consecutiveForWin)
-      || winningMasks.map(mask => oDisks & mask).exists(s => s.size == consecutiveForWin)
-
+    getWinner(board, winningMasks, consecutiveForWin).isDefined
 
   trait AI:
     def move(board: Board): Disk
@@ -128,23 +63,17 @@ object ConnectGame extends App:
         case Some(row) => Disk(col, row, player)
         case _ => move(board)
 
-  import GameUtils.Point
-
-  object Disk:
-    def apply(p: Point, player: Player): Disk = Disk(p._1, p._2, player)
-
   case class SmartAI(player: Player) extends AI:
+    import ex4.GameUtils.getBestMove
     def move(board: Board): Disk =
-      val possibleMoves = for
-        row <- 0 to bound
-        col <- 0 to bound
-        if !board.map(d => (d.x, d.y)).contains((col, row))
-      yield (col, row)
-      given Ordering[(Int, Int)] = (p1, p2) => p1._2 - p2._2
-      Disk(possibleMoves.min, player)
+      val (move, rating) = getBestMove(board, player, possibleMoves, winningMasks)
+      if rating == consecutiveForWin
+      then Disk(move, player)
+      else getBestMove(board, player.other, possibleMoves, winningMasks) match
+        case (counterMove, 3) => Disk(counterMove, player)
+        case _ => Disk(move, player)
 
-  def printBoards(game: Seq[Board], b: Boolean = false, i: Int = 0): Unit =
-    println(s"Game: $i Won: $b")
+  def printBoards(game: Seq[Board], bound: Int = bound): Unit =
     for
       y <- bound to 0 by -1
       board <- game.reverse
@@ -155,7 +84,7 @@ object ConnectGame extends App:
         print(" ")
         if board == game.head then println()
 
-  def printBoard(board: Board): Unit =
+  def printBoard(board: Board, bound: Int = bound): Unit =
     for
       y <- bound to 0 by -1
       x <- 0 to bound
@@ -167,6 +96,7 @@ object ConnectGame extends App:
     // Exercise 1: implement find such that..
     println("EX 1: ")
 
+    import Player.*
     println(find(List(Disk(0, 0, X)), 0, 0)) // Some(X)
     println(find(List(Disk(0, 0, X), Disk(0, 1, O), Disk(0, 2, X)), 0, 1)) // Some(O)
     println(find(List(Disk(0, 0, X), Disk(0, 1, O), Disk(0, 2, X)), 1, 1)) // None
@@ -191,19 +121,14 @@ object ConnectGame extends App:
     // ...O ..XO .X.O X..O
     println("EX 4: ")
     // Exercise 3 (ADVANCED!): implement computeAnyGame such that..
-    import GameUtils.*
-    import Direction.East
-    println(generateMask((0, 0), East, bound, 3)) //Some(Set((0,0), (1,0), (2,0)))
-    println(generateMask((2, 2), East, bound, 3)) //None cause out of bound
-    println(generateMask((0, 0), East, bound = 2, 3)) //Some(Set((0,0), (1,0), (2,0)))
-    println(generateWinningMasks(gridSize = 3, numberOfPoints = 3).toSet)
     println(winningMasks)
     println(isAWin(Seq(Disk(3, 0, O), Disk(2, 0, X), Disk(3, 1, O), Disk(1, 0, X), Disk(3, 2, O)))) //true
-    val games = computeAnyGame(O, 1)
+    val games = computeAnyGame(O, 8)
     games.zipWithIndex.collect({
       case p if true => p
     }).foreach { (g, i) =>
-      printBoards(g._1.reverse, g._2, i)
+      println(s"Game: $i Won: ${g._2}")
+      printBoards(g._1.reverse)
       println()
     }
     val wonMap = games.groupMapReduce(p => p._2)(p => 1)(_ + _)
