@@ -8,7 +8,7 @@ object Solitaire extends App:
   val height = 6
   given IterableFactory = LazyList(_)
 
-  val numbers = 4
+  val numbers = 36
   @main def run(): Unit = placeNumbers(numbers)
     .zipWithIndex
     .foreach((sol, i) => println(render(sol, i, width, height)))
@@ -25,21 +25,15 @@ object Solitaire extends App:
           && isReachable(number, numbers.last, width, height)
       yield numbers.toSeq :+ number
 
-  def isReachable(to: Cell, from: Cell, width: Int, height: Int): Boolean =
-    straightMoves(from) concat obliqueMoves(from) filter((x, y) => x < width && y < height) contains to
+  private def isReachable(to: Cell, from: Cell, width: Int, height: Int): Boolean =
+    possibleMoves(from) filter((x, y) => x < width && y < height) contains to
 
-  private def obliqueMoves(from: Cell): List[Cell] =
+  private def possibleMoves(from: Cell): List[Cell] =
     for
-      x <- List(2, -2)
-      y <- List(2, -2)
-    yield (from._1 + x, from._2 + y)
-
-  private def straightMoves(from: Cell): List[Cell] =
-    for
-      x <- List(0, 3, -3)
-      y <- List(0, 3, -3)
-      if x == 0 || y == 0 && !(x == 0 && y == 0)
-    yield (from._1 + x, from._2 + y)
+      (x, y) <- List((2, 2), (3, 0), (0, 3))
+      xi <- if x == 0 then List(0) else List(x, -x)
+      yi <- if y == 0 then List(0) else List(y, -y)
+    yield (from._1 + xi, from._2 + yi)
 
   def render(solution: Solution, index: Int, width: Int, height: Int): String =
     println(s"Solution $index -> $solution")
