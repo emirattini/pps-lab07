@@ -1,5 +1,7 @@
 package ex4
 
+import ex4.GameUtils.Player.X
+
 import scala.annotation.{tailrec, targetName}
 
 object GameUtils:
@@ -63,11 +65,11 @@ object GameUtils:
 
   import Player.*
   def getWinner(board: Board, winningMasks: Set[Mask], consecutiveForWin: Int): Option[Player] =
-    if winningMasks.map(mask => getPlayerPoints(board, X) & mask).exists(s => s.size == consecutiveForWin)
-    then Some(X)
-    else if winningMasks.map(mask => getPlayerPoints(board, O) & mask).exists(s => s.size == consecutiveForWin)
-      then Some(O)
-      else None
+    Player.values find { player =>
+      winningMasks
+        .map(_ & getPlayerPoints(board, player))
+        .exists(_.size == consecutiveForWin)
+    }
 
   private type Rating = Int
   def getBestMove(board: Board, player: Player, possibleMoves: Board => Seq[Point],
@@ -87,7 +89,14 @@ object GameUtils:
   import GameUtils.*
   import Direction.East
 
-  println(generateMask((0, 0), East, bound = 2, 3)) //Some(Set((0,0), (1,0), (2,0)))
-  println(generateMask((2, 2), East, bound = 2, 3)) //None cause out of bound
-  println(generateWinningMasks(gridSize = 3, numberOfPoints = 3).toSet)
+  println(generateMask((0, 0), East, bound = 2, numberOfPoints = 3)) //Some(Set((0,0), (1,0), (2,0)))
+  println(generateMask((2, 2), East, bound = 2, numberOfPoints = 3)) //None cause out of bound
+  import ex4.connect.ConnectGame.printBoard
+  val size = 10
+  val bound = size - 1
+  val nWinningMasks = generateWinningMasks(gridSize = size, numberOfPoints = 4)
+    .map(mask => mask.map(p => Disk(p, X)).toList)
+    .map{ board => printBoard(board, bound = bound); println ; board}
+    .size
+  println(s"There are $nWinningMasks winning masks")
 
