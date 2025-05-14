@@ -2,7 +2,6 @@ package ex4.tictactoe
 
 import ex4.connect.ConnectGame
 import ex4.GameUtils.*
-import Player.*
 
 object TicTacToe extends App:
   val size = 3
@@ -28,10 +27,8 @@ object TicTacToe extends App:
         game <- computeAnyGame(player.other, moves - 1)
         newBoard <- placeAnyDisk(game._1.last, player)
       yield
-        if !isAWin(game._1.last) then
-          if !isAWin(newBoard) then (game._1 :+ newBoard, false)
-          else (game._1 :+ newBoard, true)
-        else (game._1, true)
+        if isAWin(game._1.last) then (game._1, true)
+        else (game._1 :+ newBoard, isAWin(newBoard))
 
   val consecutiveForWin = 3
 
@@ -64,15 +61,14 @@ object TicTacToe extends App:
         case (counterMove, rating) if rating == consecutiveForWin => Disk(counterMove, player)
         case _ => Disk(move, player)
 
-@main def runTicTacToe(): Unit =
-  import TicTacToe.*
-  val games = computeAnyGame(O, 9)
-  games.zipWithIndex.collect({
-    case p if p._1._2 => p
-  }).foreach { (g, i) =>
-    println(s"Game: $i Won: ${g._2}")
-    printBoards(g._1.reverse)
-    println()
-  }
-  val wonMap = games.groupMapReduce(p => p._2)(p => 1)(_ + _)
-  println(s"Total: ${games.size}, Won: $wonMap")
+  @main def runTicTacToe(): Unit =
+    val games = computeAnyGame(O, 9)
+    games.zipWithIndex.collect({
+      case p if p._1._2 => p
+    }).foreach { (g, i) =>
+      println(s"Game: $i Won: ${g._2}")
+      printBoards(g._1.reverse)
+      println()
+    }
+    val wonMap = games.groupMapReduce(p => p._2)(p => 1)(_ + _)
+    println(s"Total: ${games.size}, Won: $wonMap")

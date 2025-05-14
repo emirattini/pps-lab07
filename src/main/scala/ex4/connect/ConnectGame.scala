@@ -40,10 +40,8 @@ object ConnectGame extends App:
         game <- computeAnyGame(player.other, moves - 1)
         newBoard <- placeAnyDisk(game._1.last, player)
       yield
-        if !isAWin(game._1.last) then
-          if !isAWin(newBoard) then (game._1 :+ newBoard, false)
-          else (game._1 :+ newBoard, true)
-        else (game._1, true)
+        if isAWin(game._1.last) then (game._1, true)
+        else (game._1 :+ newBoard, isAWin(newBoard))
 
   import ex4.GameUtils.{Mask, generateWinningMasks, getWinner}
   val consecutiveForWin = 3
